@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<project name="X3Platform.SDK.Patch" default="Build" >
+    <description>Product 1.0 release build file for NAnt. By ruanyu@live.com</description>
+    <!-- 项目名称 -->
+    <property name="CurrentDir" value="${directory::get-current-directory()}"/>
+    <!-- 名称空间根 -->
+    <property name="NamespaceRoot" value="X3Platform" />
+    <!-- 项目名称 -->
+    <property name="ProjectName" value="Patch" />
+    <!-- 程序集名称 -->
+    <property name="AssemblyName" value="${NamespaceRoot}.SDK.Patch" />
+    <!-- 是否允许调试 -->
+    <property name="Debug" value="false" />
+    <!-- 解决方案根目录 -->
+    <property name="SolutionDir" value="./" />
+    <!-- 项目根目录 -->
+    <property name="ProjectDir" value="./src/SDK/SDK.Patch/" />
+    <!-- 目标输出根目录 -->
+    <property name="TargetDir" value="./src/SDK/SDK.Patch/bin/Release/" />
+
+    <!-- 清理程序集 -->
+    <target name="Clean" >
+        <delete>
+            <fileset>
+                <include name="${TargetDir}${AssemblyName}.exe"/>
+                <include name="${TargetDir}${AssemblyName}.pdb"/>
+            </fileset>
+        </delete>
+    </target>
+
+    <!-- 编译程序集 -->
+    <target name="Compile" depends="Clean" >
+        <echo message="正在编译项目:${ProjectName}" />
+        <mkdir dir="${TargetDir}" />
+        <!-- 编译目标文件 -->
+        <csc target="exe" output="${TargetDir}${AssemblyName}.exe" debug="${Debug}" >
+            <references>
+                <include name="${SolutionDir}lib/X3Platform/X3Platform.Support.dll" />
+                <!--<include name="${SolutionDir}bin\**.dll" />-->
+            </references>
+            <sources>
+                <!-- 编译所有cs文件 -->
+                <!-- <include name="**/*.cs" /> -->
+                <include name="${ProjectDir}Program.cs" />
+            </sources>
+        </csc>
+        <!-- 复制程序集文件到项目的bin目录 -->
+        <copy todir="${SolutionDir}bin/" >
+            <fileset basedir="${TargetDir}" >
+                <include name="${AssemblyName}.exe"/>
+                <include name="${AssemblyName}.pdb"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <!-- 合并程序集 -->
+    <target name="Merge" >
+        <copy file="${ProjectDir}defaults/App.config" tofile="${SolutionDir}dist/${nant.settings.currentframework}/patch.exe.config" />
+        <echo message="${SolutionDir}tools/ILMerge/ILMerge.exe /ndebug /target:exe /out:patch.exe ${TargetDir}${AssemblyName}.exe /log ${SolutionDir}lib/X3Platform/X3Platform.Support.dll" />
+        <exec program="${SolutionDir}tools/ILMerge/ILMerge.exe" >
+            <arg value="/targetplatform:v4,&quot;${environment::get-folder-path('ProgramFiles')} (x86)/Reference Assemblies/Microsoft/Framework/.NETFramework/v4.0&quot;" />
+            <arg value="/ndebug" />
+            <arg value="/target:exe" />
+            <arg value="/out:dist/${nant.settings.currentframework}/patch.exe" />
+            <arg value="${TargetDir}${AssemblyName}.exe" />
+            <arg value="/log" />
+            <arg>
+              <path>
+                  <pathelement file="lib/Common.Logging/Common.Logging.dll" />
+              </path>
+            </arg>
+            <arg>
+              <path>
+                  <pathelement file="lib/X3Platform/X3Platform.Support.dll" />
+              </path>
+            </arg>
+        </exec>
+    </target>
+
+    <!-- 构建程序集 -->
+    <target name="Build" description="构建解决项目" >
+        <echo message="正在编译项目:${ProjectName}" />
+        <echo message="当前目录:${CurrentDir}" />
+        <echo message="AssemblyName:${AssemblyName}.dll" />
+        <call target="Compile" />
+        <call target="Merge" />
+    </target>
+</project>
