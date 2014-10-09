@@ -6,7 +6,7 @@ var async = require('async'),
 // 数据库连接配置
 var mysqlConfig = require('./mysql-config.json');
 // 数据库名称
-var DATABASE_TOOLS_CONFIG = 'db_tools_config';
+var DATABASE_SDK_CONFIG = 'db_sdk_config';
 // 创建连接
 var connection = mysql.createConnection(mysqlConfig);
 
@@ -25,9 +25,9 @@ connection.config.queryFormat = function(query, values)
 
 exports.currentVersion = function(options)
 {
-    connection.query('USE ' + DATABASE_TOOLS_CONFIG);
+    connection.query('USE ' + DATABASE_SDK_CONFIG);
 
-    connection.query('SELECT * FROM tb_Patch_Task WHERE name = \'' + options.taskName + '\' LIMIT 0,1 ', function(err, results, fields)
+    connection.query('SELECT * FROM Patch_Task WHERE name = \'' + options.taskName + '\' LIMIT 0,1 ', function(err, results, fields)
     {
         if (err) throw err;
 
@@ -44,9 +44,9 @@ exports.currentVersion = function(options)
 
 exports.syncVersion = function(options)
 {
-    connection.query('USE ' + DATABASE_TOOLS_CONFIG);
+    connection.query('USE ' + DATABASE_SDK_CONFIG);
 
-    connection.query('UPDATE tb_Patch_Task SET version_value = ' + options.versionValue + ', version_timestamp = CURRENT_TIMESTAMP, update_date = CURRENT_TIMESTAMP WHERE name = \'' + options.taskName + '\' ', function(err, results, fields)
+    connection.query('UPDATE Patch_Task SET version_value = ' + options.versionValue + ', version_timestamp = CURRENT_TIMESTAMP, update_date = CURRENT_TIMESTAMP WHERE name = \'' + options.taskName + '\' ', function(err, results, fields)
     {
         if (err) throw err;
 
