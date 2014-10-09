@@ -1,0 +1,42 @@
+{
+    // 任务名称
+    "{taskName}": {
+        // 源代码地址
+        "sourcePath": "{sourcePath}",
+        // 输出地址
+        "destPath": "{destPath}",
+        // 版本类型
+        "versionType": "DailyIncrement",
+        // 输出目录规则
+        "outputDirectoryRule": "{outputDirectoryRule}",
+        // 输出目录名称
+        "innerOutputDirectoryName": "{innerOutputDirectoryName}",
+        // 忽略的目录
+        "ignoreDirectories": [
+            "obj",
+            "config",
+            "logs",
+            "uploads",
+            "UploadImages",
+            "resource"
+        ],
+        // 忽略的文件
+        "ignoreFiles": [
+            ".bak",
+            ".cs",
+            ".pdb",
+            ".csproj",
+            ".user",
+            ".vspscc",
+            "web.config",
+            "web.debug.config",
+            "web.release.config"
+        ],
+        // 忽略的程序集
+        "ignoreBinaries": [
+            "DMedia.DreamWap.LiteJson.dll",
+            "DMedia.DreamWap.GifUtility.dll",
+            "DMedia.DreamWap.Utils.dll"
+        ]
+    }
+}

@@ -1,98 +1,141 @@
 // -*- ecoding=utf-8 -*-
 
-var path = require('path');
-var fs = require('fs');
+var async = require('async'),
+    path = require('path'),
+    fs = require('fs');
 
-var tasks = JSON.parse(fs.readFileSync('./patch.json', 'utf8'));
+// 设置是否输出日志
+var enableLog = false;
 
 // 设置任务名称
 var taskName = '12582wap';
 
-var options = tasks[taskName];
+var terminal = require('./terminal');
 
-// 开始时间
-var beginDate =options.timestamp;
-// 结束时间
-var endDate = new Date();
-
-// 日志文件
-var logFile = options.destPath + "patch.log";
-// 管理版本文件
-var versionFile = options.destPath + "patch.version";
-
-// 格式化参数格式
-
-var version = 1;
-
-// var version = ReadPatchVersion(versionFile, taskName, versionType, version, ref beginDate);
-
-// 输出目录
-// var outputPath = destPath + GetOutputDirectoryName(outputDirectoryRule, ref version) + "\\";
-options.outputPath = options.destPath + 'test' + '/';
-
-// 设置程序更新包内部一级目录路径
-var innerOutputPath = options.outputPath;
-
-if (options.innerOutputDirectoryName != '')
+// 读取配置信息
+var config = terminal.toJSON(
 {
-    innerOutputPath = options.outputPath + options.innerOutputDirectoryName + '/';
-}
+    path: './patch.json'
+});
 
-console.log('destPath:' + innerOutputPath);
+var options = config[taskName];
 
-var patchFiles = [];
+var filelogs = [];
 
-// DirectoryHelper.Create(innerOutputPath);
+async.series([
+    // 获取版本信息
+    function(callback)
+    {
+        terminal.currentVersion(
+        {
+            taskName: taskName,
 
-if (!fs.existsSync(innerOutputPath))
-{
-    fs.mkdirSync(innerOutputPath);
-}
-
-// FindPatchFiles(patchFiles, sourcePath, sourcePath, innerOutputPath, beginDate, endDate, ignoreDirectories, ignoreFiles, ignoreBinaries);
-
-// 查找需要打补丁的文件
-findPatchFiles(
-    [],
-    options.sourcePath,
-    options.sourcePath,
-    innerOutputPath,
-    beginDate,
-    endDate,
-    options.ignoreDirectories,
-    options.ignoreFiles,
-    options.ignoreBinaries);
-
-tasks[taskName].timestamp = endDate;
-
-fs.writeFile('./patch.json', JSON.stringify(tasks, null, 4));
-/*
-
-
-            if (patchFiles.Count == 0)
+            callback: function(result)
             {
-                Console.WriteLine("There is no patch file.");
+                options.versionType = result.versionType;
+                options.versionValue = result.versionValue;
+                options.versionTimestamp = result.versionTimestamp;
+
+                // console.log('{"version":{"value":' + result.versionValue + ',"timestamp":"' + result.versionTimestamp + '"}');
+                options.versionValue++;
+
+                callback();
             }
-            else
+        });
+    },
+    // 创建输出目录
+    function(callback)
+    {
+        // 输出目录名称
+        var outputDirectoryName = terminal.getOutputDirectoryName(
+        {
+            outputDirectoryRule: options.outputDirectoryRule,
+            versionValue: options.versionValue
+        });
+
+        options.outputPath = options.destPath + outputDirectoryName + '/';
+
+        // 设置程序更新包内部一级目录路径
+        var innerOutputPath = options.innerOutputPath = options.outputPath;
+
+        if (options.innerOutputDirectoryName != '')
+        {
+            innerOutputPath = options.outputPath + options.innerOutputDirectoryName + '/';
+        }
+
+        // console.log('destPath:' + innerOutputPath);
+
+        var patchFiles = [];
+
+        terminal.mkdirs(innerOutputPath, 0777, function()
+        {
+            options.innerOutputPath = innerOutputPath;
+            console.log(innerOutputPath + ' created.');
+            callback();
+        });
+
+        // console.log(options);
+    },
+    // 复制需要的文件
+    function(callback)
+    {
+        // 开始时间
+        var beginDate = new Date(options.versionTimestamp || 0);
+
+        // 结束时间
+        var endDate = new Date();
+
+        // 查找需要打补丁的文件
+        copyFiles(
+            [],
+            options.sourcePath,
+            options.sourcePath,
+            options.innerOutputPath,
+            beginDate,
+            endDate,
+            options.ignoreDirectories,
+            options.ignoreFiles,
+            options.ignoreBinaries);
+
+        callback();
+    },
+
+    // 更新版本信息
+    function(callback)
+    {
+        if (filelogs.length == 0)
+        {
+            callback();
+        }
+
+        filelogs.forEach(function(item)
+        {
+            console.log(item);
+        });
+
+        terminal.syncVersion(
+        {
+            taskName: taskName,
+            versionValue: options.versionValue,
+            callback: function(result)
             {
-                WritePatchLog(logFile, patchFiles, sourcePath, beginDate, endDate, ignoreDirectories, ignoreFiles);
-
-                // 写入版本文件
-                WritePatchVersion(versionFile, options.Task, version);
+                // 同步成功
+                console.log('finished.');
+                callback();
             }
+        });
+    }
+]);
 
-            // 复制 readme 文件
-            if (File.Exists(destPath + "readme.txt"))
-            {
-                File.Copy(destPath + "readme.txt", outputPath + "readme.txt", true);
-            }
-*/
+return;
 
-/* #region 静态函数:FindPatchFiles(IList<string> patchFiles, string sourcePath, string inputPath, string outputPath, DateTime beginDate, DateTime endDate, string ignoreDirectories, string ignoreFiles, string ignoreBinaries) */
+config[taskName].timestamp = endDate;
+
+/* #region 静态函数:copyFiles(IList<string> patchFiles, string sourcePath, string inputPath, string outputPath, DateTime beginDate, DateTime endDate, string ignoreDirectories, string ignoreFiles, string ignoreBinaries) */
 /**
- * 查找需要打补丁的文件
+ * 复制需要打补丁的文件
  */
-function findPatchFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate, endDate, ignoreDirectories, ignoreFiles, ignoreBinaries)
+function copyFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate, endDate, ignoreDirectories, ignoreFiles, ignoreBinaries)
 {
     if (inputPath[inputPath.length - 1] == ('\\') || inputPath[inputPath.length - 1] == ('/'))
     {
@@ -133,13 +176,13 @@ function findPatchFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate
 
     files.forEach(function(file)
     {
-        if (file.toLowerCase().match('(' + ignoreFiles.join('|') + ')$'))
+        if (file.toLowerCase().match(new RegExp('(' + ignoreFiles.join('|') + ')$', 'i')))
         {
-            // console.log('[ignore][file] ' + file);
+            console.log('[ignore][file] ' + file);
             return;
         }
 
-        if (path.basename(path.dirname(destFileName)).toLowerCase() == 'bin' && file.toLowerCase().match('(' + ignoreBinaries.join('|') + ')$'))
+        if (path.basename(path.dirname(destFileName)).toLowerCase() == 'bin' && file.toLowerCase().match(new RegExp('(' + ignoreBinaries.join('|') + ')$', 'i')))
         {
             // console.log('[ignore][file] ' + file);
             return;
@@ -149,6 +192,7 @@ function findPatchFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate
 
         // console.log(fs.realpathSync(file));
         // console.log(file + ', lastWriteTime:' + stats.mtime + ', beginDate:' + beginDate + ', endDate:' + endDate);
+        // console.log('stats.mtime >= beginDate (' + (stats.mtime >= beginDate) + ') && stats.mtime <= endDate (' + (stats.mtime <= endDate) + ')');
 
         // 判断更新时间
         if (stats.mtime >= beginDate && stats.mtime <= endDate)
@@ -156,7 +200,6 @@ function findPatchFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate
             patchFiles[patchFiles.length] = file;
 
             var sourceFileName = file,
-
                 destFileName = file.replace(inputPath, outputPath);
 
             var destPath = path.dirname(destFileName);
@@ -167,10 +210,10 @@ function findPatchFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate
             console.log('inputPath:' + inputPath);
             console.log('outputPath:' + outputPath);
             console.log('destFileName:' + destFileName);
-*/
+            // */
             if (!fs.existsSync(destPath))
             {
-                mkdirs(destPath);
+                terminal.mkdirsSync(destPath);
             }
 
             if (fs.existsSync(destFileName))
@@ -178,19 +221,12 @@ function findPatchFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate
                 // File.SetAttributes(destFileName, System.IO.FileAttributes.Normal);
                 // fs.chmodSync(destFileName, 777);
             }
-            /*
 
-            if (File.Exists(destFileName))
-            {
-                File.SetAttributes(destFileName, System.IO.FileAttributes.Normal);
-            }
-*/
-            // File.Copy(sourceFileName, destFileName, true);
-            fs.createReadStream(sourceFileName).pipe(fs.createWriteStream(destFileName));
+            // 复制文件
+            terminal.copyFile(sourceFileName, destFileName);
 
-            // console.log(file.replace(sourcePath, ''));
+            filelogs.push(file.replace(sourcePath, ''));
         }
-
     });
 
     directories.forEach(function(directory)
@@ -203,66 +239,6 @@ function findPatchFiles(patchFiles, sourcePath, inputPath, outputPath, beginDate
             return;
         }
 
-        /*
-        DirectoryInfo directoryInfo = new DirectoryInfo(directory);
-
-        string relativePath = directoryInfo.FullName.Replace(sourcePath, string.Empty).ToLower() + "\\";
-
-        if (ignoreDirectories.IndexOf(relativePath + ";") > -1 || ignoreDirectories.IndexOf(directoryInfo.Name.ToLower() + ";") > -1)
-        {
-            continue;
-        }
-        */
-
-        findPatchFiles(patchFiles, sourcePath, directory, (outputPath + '/' + path.basename(directory)), beginDate, endDate, ignoreDirectories, ignoreFiles, ignoreBinaries);
+        copyFiles(patchFiles, sourcePath, directory, (outputPath + '/' + path.basename(directory)), beginDate, endDate, ignoreDirectories, ignoreFiles, ignoreBinaries);
     });
-
-    /*    
-    foreach(var directory in directories)
-    {
-        DirectoryInfo directoryInfo = new DirectoryInfo(directory);
-
-        string relativePath = directoryInfo.FullName.Replace(sourcePath, string.Empty).ToLower() + "\\";
-
-        if (ignoreDirectories.IndexOf(relativePath + ";") > -1 || ignoreDirectories.IndexOf(directoryInfo.Name.ToLower() + ";") > -1)
-        {
-            continue;
-        }
-
-        findPatchFiles(patchFiles, sourcePath, directory, string.Format("{0}\\{1}", outputPath, directoryInfo.Name), beginDate, endDate, ignoreDirectories, ignoreFiles, ignoreBinaries);
-    }*/
 }
-
-/**
- * 数字补零
- */
-function paddingZero(version, length)
-{
-    var zero = null;
-
-    for (var i = 0; i < length; i++)
-    {
-        zero += "0";
-    }
-    // 此处有错误, 需要修改
-    return zero == null ? version : (zero + version);
-}
-
-/**
- * 创建所有目录
- */
-function mkdirs(directory)
-{
-    //尝试创建父目录，然后再创建当前目录
-    parent = path.dirname(directory)
-
-    if (!fs.existsSync(parent))
-    {
-        mkdirs(parent);
-    }
-
-    if (!fs.existsSync(directory))
-    {
-        fs.mkdirSync(directory);
-    }
-};
