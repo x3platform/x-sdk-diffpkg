@@ -7,4 +7,4 @@
 copy mysql-config.example.json mysql-config.json  
 
 3.配置 patch.json  
-copy patch.example.json patch.json  
+copy diffpkg.example.json diffpkg.json  
